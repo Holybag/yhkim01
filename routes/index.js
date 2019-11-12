@@ -45,8 +45,5 @@ router.post('/login', function(req, res, next) {
 
 });
 
-router.post('/register', function(req, res, next) {
-	res.send("Register succeed");
-});
 
 module.exports = router;

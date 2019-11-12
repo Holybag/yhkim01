@@ -23,13 +23,14 @@ router.get('/', function(req, res, next) {
 
 });
 
+
 router.get('/:id', function(req, res, next){
 	
 	var id = req.params.id;
 	pool.query({
 		sql: 'SELECT * FROM Contents WHERE id=?',
 		timeout: 4000,
-		values: [id]
+		values: [parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
 			res.send(error);
@@ -50,7 +51,7 @@ router.post('/', function(req, res, next){
 		sql: 'INSERT INTO Contents (title, type, contents, image_url, user_id, created_at)\
 		                  Values (?, ?, ?, ?, ?, NOW())',
 		timeout: 4000,
-		values: [title, type, contents, image_url, user_id]
+		values: [title, type, contents, image_url, parseInt(user_id)]
 	}, function(error, results, fields){
 		if (error) {
 			res.send(error);
@@ -58,7 +59,27 @@ router.post('/', function(req, res, next){
 			res.send('Contents ' + title + ' is added');
 		}
 	});
-})
+});
+
+router.put('/:id', function(req, res, next){
+	var id = req.params.id;
+	var title = req.body.title;
+	var type = req.body.type;
+	var contents = req.body.contents;
+	var image_url = req.body.image_url;
+	var user_id = req.body.user_id;
+	pool.query({
+		sql: 'UPDATE Contents SET title=?, type=?, contents=?, image_url=?, user_id=? WHERE id=?',
+		timeout: 4000,
+		values: [title, type, contents, image_url, parseInt(user_id), parseInt(id)]
+	}, function(error, results, fields){
+		if (error) {
+			res.send(error);
+		} else {
+			res.send('Contents ' + title + ' is modified');
+		}
+	});
+});
 
 router.delete('/', function(req, res, next){
 	pool.query({
@@ -79,7 +100,7 @@ router.delete('/:id', function(req, res, next){
 	pool.query({
 		sql: 'DELETE FROM Contents WHERE id=?',
 		timeout: 4000,
-		values: [id]
+		values: [parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
 			res.send(error);
