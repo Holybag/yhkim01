@@ -16,7 +16,7 @@ var pool  = mysql.createPool({
 /* GET users listing. */
 router.get('/', function(req, res, next) {
 
-	pool.query('SELECT * FROM Chats', function(error, results, fields){
+	pool.query('SELECT * FROM ChatsContents', function(error, results, fields){
 		if (error) res.send(error);
 		res.send(results);
 	});
@@ -27,7 +27,7 @@ router.get('/:id', function(req, res, next){
 	
 	var id = req.params.id;
 	pool.query({
-		sql: 'SELECT * FROM Chats WHERE id=?',
+		sql: 'SELECT * FROM ChatsContents WHERE id=?',
 		timeout: 4000,
 		values: [parseInt(id)]
 	}, function(error, results, fields){
@@ -41,19 +41,20 @@ router.get('/:id', function(req, res, next){
 
 router.post('/', function(req, res, next){
 	
-	var name = req.body.name;
+	var chats_id = req.body.chats_id;
 	var user_id = req.body.user_id;
+	var comment = req.body.comment;
 	
 	pool.query({
-		sql: 'INSERT INTO Chats (name, user_id, created_at)\
-		                  VALUES (?, ?, NOW())',
+		sql: 'INSERT INTO ChatsContents (chats_id, created_at, user_id, comment)\
+		                  VALUES (?, NOW(), ?, ?)',
 		timeout: 4000,
-		values: [name, parseInt(user_id)]
+		values: [parseInt(chats_id), parseInt(user_id), comment]
 	}, function(error, results, fields){
 		if (error) {
 			res.send(error);
 		} else {
-			res.send('Chats ' + name + ' is created');
+			res.send('ChatsContent ' + comment + ' is added');
 		}
 	});
 });
@@ -61,18 +62,19 @@ router.post('/', function(req, res, next){
 router.put('/:id', function(req, res, next){
 	
 	var id = req.params.id;
-	var name = req.body.name;
+	var chats_id = req.body.chats_id;
 	var user_id = req.body.user_id;
+	var comment = req.body.comment;
 	
 	pool.query({
-		sql: 'UPDATE Chats SET name=?, user_id=? WHERE id=?',
+		sql: 'UPDATE ChatsContents SET chats_id=?, user_id=?, comment=? WHERE id=?',
 		timeout: 4000,
-		values: [name, parseInt(user_id), parseInt(id)]
+		values: [parseInt(chats_id), parseInt(user_id), comment, parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
 			res.send(error);
 		} else {
-			res.send('User ' + name + ' is modified');
+			res.send('ChatsContent ' + id + ' is modified');
 		}
 	});
 });
@@ -81,29 +83,46 @@ router.put('/:id', function(req, res, next){
 router.delete('/:id', function(req, res, next){
 	var id = req.params.id;
 	pool.query({
-		sql: 'DELETE FROM Chats WHERE id=?',
+		sql: 'DELETE FROM ChatsContents WHERE id=?',
 		timeout: 4000,
 		values: [parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
 			res.send(error);
 		} else {
-			res.send('Chat ' + id + ' is deleted');
+			res.send('ChatsContent ' + id + ' is deleted');
 		}
 	});
 });
 
 router.delete('/', function(req, res, next){
-	pool.query({
-		sql: 'DELETE FROM Chats',
-		timeout: 4000
-	}, function(error, results, fields){
-		if (error) {
-			res.send(error);
-		} else {
-			res.send('All Chats are deleted');
-		}
-	});
+	var chats_id = req.body.chats_id;
+
+	if (chats_id == null || chats_id == undefined) {
+		pool.query({
+			sql: 'DELETE FROM ChatsContents',
+			timeout: 4000
+		}, function(error, results, fields){
+			if (error) {
+				res.send(error);
+			} else {
+				res.send('All ChatsContents are deleted');
+			}
+		});	
+	} else {
+		pool.query({
+			sql: 'DELETE FROM ChatsContents WHERE chats_id=?',
+			timeout: 4000,
+			values: [parseInt(chats_id)]
+		}, function(error, results, fields){
+			if (error) {
+				res.send(error);
+			} else {
+				res.send('All ChatsContents in chats_id:' + chats_id + ' are deleted');
+			}
+		});	
+	}
+	
 });
 
 module.exports = router;
