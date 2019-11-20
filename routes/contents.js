@@ -17,8 +17,12 @@ var pool  = mysql.createPool({
 router.get('/', function(req, res, next) {
 
 	pool.query('SELECT * FROM Contents', function(error, results, fields){
-		if (error) res.send(error);
-		res.send(results);
+		if (error) {
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
+		} else {
+			res.send(results);
+		}
 	});
 
 });
@@ -33,7 +37,8 @@ router.get('/:id', function(req, res, next){
 		values: [parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
 		} else {
 			res.send(results);
 		}
@@ -54,9 +59,11 @@ router.post('/', function(req, res, next){
 		values: [title, type, contents, image_url, parseInt(user_id)]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
-		} else {
-			res.send('Contents ' + title + ' is added');
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
+		} else {			
+			var resp = `{ result:true, message: ${results.insertId}}`;
+			res.send(resp);
 		}
 	});
 });
@@ -74,9 +81,11 @@ router.put('/:id', function(req, res, next){
 		values: [title, type, contents, image_url, parseInt(user_id), parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
+			var resp = `{ result:false, message: ${error}}`;
+			res.send(resp);
 		} else {
-			res.send('Contents ' + title + ' is modified');
+			var resp = `{ result:true, message: "Content ${title} is modified"}`;
+			res.send(resp);
 		}
 	});
 });
@@ -87,9 +96,11 @@ router.delete('/', function(req, res, next){
 		timeout: 4000
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
+			var resp = `{ result:false, message: "${error}""}`;
+			res.send(resp);
 		} else {
-			res.send('All Contents are deleted');
+			var resp = `{ result:true, message: "${results.affectedRows} Contents was deleted"`;
+			res.send(resp);
 		}
 	});
 });
@@ -103,9 +114,11 @@ router.delete('/:id', function(req, res, next){
 		values: [parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
+			var resp = `{ result:false, message: "${error}" }`;
+			res.send(resp);
 		} else {
-			res.send('Content ' + id + ' is deleted');
+			var resp = `{ result:true, message: "Content ${id} was deleted" }`;
+			res.send(resp);
 		}
 	});
 });

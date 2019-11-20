@@ -1,10 +1,12 @@
 var express = require('express');
 var mysql = require('mysql');
-var bodyParser = require('body-parser')
+var bodyParser = require('body-parser');
+var mongoClient = require('mongodb').MongoClient;
 var router = express.Router();
 
 router.use(bodyParser.urlencoded({ extended: false }));
 
+////////// mysql ////////////////////
 var pool  = mysql.createPool({
   connectionLimit : 10,
   host            : 'localhost',
@@ -13,12 +15,39 @@ var pool  = mysql.createPool({
   database        : 'yhkim01'
 });
 
+/////////// mongodb /////////////
+//const url = 'mongodb://localhost:27017';
+// const dbName = 'myproject';
+// mongoClient.connect(url, function(err, client) {
+// 	console.log('Connected successfully to mongodb server');
+// 	const db = client.db(dbName);
+
+// 	insertTest(db, function() {
+// 		client.close();
+// 	});
+// });
+
+// const insertTest = function(db, callback) {
+// 	const collection = db.collection('table01');
+
+// 	collection.insertMany([
+// 		{a:1}, {a:2}, {a:3}
+// 		], function(err, result){
+// 			console.log('Inserted 3 documents into the collection');
+// 			callback(result);
+// 		});
+// }
+
 /* GET users listing. */
 router.get('/', function(req, res, next) {
 
 	pool.query('SELECT * FROM ChatsContents', function(error, results, fields){
-		if (error) res.send(error);
-		res.send(results);
+		if (error) {
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
+		} else {
+			res.send(results);
+		}
 	});
 
 });
@@ -32,7 +61,8 @@ router.get('/:id', function(req, res, next){
 		values: [parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
 		} else {
 			res.send(results);
 		}
@@ -52,9 +82,11 @@ router.post('/', function(req, res, next){
 		values: [parseInt(chats_id), parseInt(user_id), comment]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
-		} else {
-			res.send('ChatsContent ' + comment + ' is added');
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
+		} else {			
+			var resp = `{ result:true, message: ${results.insertId}}`;
+			res.send(resp);
 		}
 	});
 });
@@ -72,9 +104,11 @@ router.put('/:id', function(req, res, next){
 		values: [parseInt(chats_id), parseInt(user_id), comment, parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
 		} else {
-			res.send('ChatsContent ' + id + ' is modified');
+			var resp = `{ result:true, message: "ChatsContent ${id} was modified"}`;
+			res.send(resp);
 		}
 	});
 });
@@ -88,9 +122,11 @@ router.delete('/:id', function(req, res, next){
 		values: [parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
 		} else {
-			res.send('ChatsContent ' + id + ' is deleted');
+			var resp = `{ result:true, message: id}`;
+			res.send(resp);
 		}
 	});
 });
@@ -104,9 +140,11 @@ router.delete('/', function(req, res, next){
 			timeout: 4000
 		}, function(error, results, fields){
 			if (error) {
-				res.send(error);
+				var resp = `{ result:false, message: ${error}}`;
+				res.send(resp);
 			} else {
-				res.send('All ChatsContents are deleted');
+				var resp = `{ result:true, message: ${results.affectedRows} Contents was deleted`;
+				res.send(resp);
 			}
 		});	
 	} else {
@@ -116,9 +154,11 @@ router.delete('/', function(req, res, next){
 			values: [parseInt(chats_id)]
 		}, function(error, results, fields){
 			if (error) {
-				res.send(error);
+				var resp = `{ result:false, message: ${error}}`;
+				res.send(resp);
 			} else {
-				res.send('All ChatsContents in chats_id:' + chats_id + ' are deleted');
+				var resp = `{ result:true, message: ${results.affectedRows} Contents was deleted`;
+				res.send(resp);
 			}
 		});	
 	}

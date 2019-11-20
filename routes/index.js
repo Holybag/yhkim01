@@ -30,14 +30,23 @@ router.post('/login', function(req, res, next) {
 		values: [email, password]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
+			var resp = '{ \
+				result: false,\
+				message: "${error}"\
+			}';
+			res.send(resp);
 		} else {
 			if (results.length > 0) {
-				//res.send(results);
-				res.send('Login succeed');
+				var resp = '{ result: true, \
+					message: "Login was succeed"}';
+				res.send(resp);
 			} 
 			else {
-				res.send(401, 'Login fail');
+				var resp = '{ \
+					result: false,\
+					message: "Login fail"\
+				}';
+				res.send(401, resp);
 			}
 			
 		}

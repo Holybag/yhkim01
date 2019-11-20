@@ -17,8 +17,13 @@ var pool  = mysql.createPool({
 router.get('/', function(req, res, next) {
 
 	pool.query('SELECT * FROM Users', function(error, results, fields){
-		if (error) res.send(error);
-		res.send(results);
+		if (error) {
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
+		} else {
+			res.send(results);	
+		}
+		
 	});
 
 });
@@ -32,7 +37,8 @@ router.get('/:id', function(req, res, next){
 		values: [parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
 		} else {
 			res.send(results);
 		}
@@ -51,9 +57,11 @@ router.post('/', function(req, res, next){
 		values: [email, password, name]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
-		} else {
-			res.send('User ' + name + ' is registed');
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
+		} else {			
+			var resp = `{ result:true, message: ${results.insertId}}`;
+			res.send(resp);
 		}
 	});
 });
@@ -71,9 +79,11 @@ router.put('/:id', function(req, res, next){
 		values: [email, password, name, parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
+			var resp = `{ result: false, message: "${error}"}`;
+			res.send(resp);
 		} else {
-			res.send('User ' + name + ' is modified');
+			var resp = `{ result: true, message: "User ${name} is modified"}`;
+			res.send(resp);
 		}
 	});
 });
@@ -84,9 +94,11 @@ router.delete('/', function(req, res, next){
 		timeout: 4000
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
 		} else {
-			res.send('All User is deleted');
+			var resp = `{ result:true, message: "${results.affectedRows} Users was deleted"`;
+			res.send(resp);
 		}
 	});
 });
@@ -99,9 +111,11 @@ router.delete('/:id', function(req, res, next){
 		values: [parseInt(id)]
 	}, function(error, results, fields){
 		if (error) {
-			res.send(error);
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
 		} else {
-			res.send('User ' + id + ' is deleted');
+			var resp = `{ result:true, message: "User ${id} was deleted"}`;
+			res.send(resp);
 		}
 	});
 });
