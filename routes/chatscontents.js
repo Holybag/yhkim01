@@ -16,39 +16,63 @@ var pool  = mysql.createPool({
 });
 
 /////////// mongodb /////////////
-//const url = 'mongodb://localhost:27017';
-// const dbName = 'myproject';
-// mongoClient.connect(url, function(err, client) {
-// 	console.log('Connected successfully to mongodb server');
-// 	const db = client.db(dbName);
+const url = 'mongodb://localhost:27017';
+const dbName = 'myproject';
+var db = null;
+mongoClient.connect(url, function(err, client) {
+	console.log('Connected successfully to mongodb server');
+	db = client.db(dbName);
 
-// 	insertTest(db, function() {
-// 		client.close();
-// 	});
-// });
+	// insertTest(db, function() {
+	// 	findTest(db, function() {
+	// 		client.close();	
+	// 	});
+		
+	// });
+});
 
-// const insertTest = function(db, callback) {
-// 	const collection = db.collection('table01');
+const insertTest = function(db, callback) {
+	const collection = db.collection('table01');
 
-// 	collection.insertMany([
-// 		{a:1}, {a:2}, {a:3}
-// 		], function(err, result){
-// 			console.log('Inserted 3 documents into the collection');
-// 			callback(result);
-// 		});
-// }
+	collection.insertMany([
+		{a:1}, {a:2}, {a:3}
+		], function(err, result){
+			console.log('Inserted 3 documents into the collection');
+			callback(result);
+		});
+}
+
+const findTest = function(db, callback) {
+	const collection = db.collection('table01');
+	collection.find({}).toArray(function(err, docs){
+		console.log('Found the following records');
+		console.log(docs);
+		callback(docs);
+	})
+}
 
 /* GET users listing. */
-router.get('/', function(req, res, next) {
+router.get('/:chats_id', function(req, res, next) {
+	var chats_id = req.params.chats_id;
 
-	pool.query('SELECT * FROM ChatsContents', function(error, results, fields){
-		if (error) {
-			var resp = `{ result:false, message: "${error}"}`;
+	const chatCollection = db.collection('chatscontents');
+	chatCollection.find({chats_id:chats_id}).toArray(function(err, results) {
+		if (err) {
+			var resp = `{ result:false, message: "${error}" }`;
 			res.send(resp);
 		} else {
 			res.send(results);
 		}
 	});
+
+	// pool.query('SELECT * FROM ChatsContents', function(error, results, fields){
+	// 	if (error) {
+	// 		var resp = `{ result:false, message: "${error}"}`;
+	// 		res.send(resp);
+	// 	} else {
+	// 		res.send(results);
+	// 	}
+	// });
 
 });
 
@@ -75,20 +99,36 @@ router.post('/', function(req, res, next){
 	var user_id = req.body.user_id;
 	var comment = req.body.comment;
 	
-	pool.query({
-		sql: 'INSERT INTO ChatsContents (chats_id, created_at, user_id, comment)\
-		                  VALUES (?, NOW(), ?, ?)',
-		timeout: 4000,
-		values: [parseInt(chats_id), parseInt(user_id), comment]
-	}, function(error, results, fields){
+	const chatCollection = db.collection('chatscontents');
+	chatCollection.save({
+		chats_id: chats_id,
+		user_id: user_id,
+		comment: comment,
+		created_at: new Date()
+	}, function(error, results){
 		if (error) {
 			var resp = `{ result:false, message: "${error}"}`;
 			res.send(resp);
 		} else {			
-			var resp = `{ result:true, message: ${results.insertId}}`;
-			res.send(resp);
+			//var resp = `{ result:true, message: ${results.insertId}}`;
+			res.send(results);
 		}
 	});
+
+	// pool.query({
+	// 	sql: 'INSERT INTO ChatsContents (chats_id, created_at, user_id, comment)\
+	// 	                  VALUES (?, NOW(), ?, ?)',
+	// 	timeout: 4000,
+	// 	values: [parseInt(chats_id), parseInt(user_id), comment]
+	// }, function(error, results, fields){
+	// 	if (error) {
+	// 		var resp = `{ result:false, message: "${error}"}`;
+	// 		res.send(resp);
+	// 	} else {			
+	// 		var resp = `{ result:true, message: ${results.insertId}}`;
+	// 		res.send(resp);
+	// 	}
+	// });
 });
 
 router.put('/:id', function(req, res, next){
