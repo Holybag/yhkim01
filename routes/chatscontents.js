@@ -2,17 +2,15 @@ var express = require('express');
 var mysql = require('mysql');
 var bodyParser = require('body-parser');
 var mongo = require('mongodb');
+var redis = require('redis');
 var router = express.Router();
+var redisClient = redis.createClient();
 
 router.use(bodyParser.urlencoded({ extended: false }));
 
-////////// mysql ////////////////////
-var pool  = mysql.createPool({
-  connectionLimit : 10,
-  host            : 'localhost',
-  user            : 'yhkim',
-  password        : 'yhkim01!',
-  database        : 'yhkim01'
+////////// redis ////////////////////
+redisClient.on("error", function (err) {
+	console.log("Error " + err);
 });
 
 /////////// mongodb /////////////
@@ -28,13 +26,27 @@ mongo.MongoClient.connect(url, function(err, client) {
 /* GET users listing. */
 router.get('/', function(req, res, next) {
 	
-	const chatCollection = db.collection('chatscontents');
-	chatCollection.find({}).toArray(function(err, results) {
-		if (err) {
-			var resp = `{ result:false, message: "${error}" }`;
-			res.send(resp);
+	var cache_key = JSON.stringify({chats_id: -1});
+	console.log(cache_key);
+
+	redisClient.get(cache_key, function(err, reply){
+		console.log(reply);
+		if (reply){
+			console.log("cached");
+			res.send(JSON.parse(reply));
 		} else {
-			res.send(results);
+			console.log("not cached");
+			const chatCollection = db.collection('chatscontents');
+			chatCollection.find({}).toArray(function(err, results) {
+				if (err) {
+					var resp = `{ result:false, message: "${error}" }`;
+					res.send(resp);
+				} else {
+					redisClient.set(cache_key, JSON.stringify(results));
+					redisClient.expire(cache_key, 10);
+					res.send(results);
+				}
+			});
 		}
 	});
 });
@@ -42,13 +54,26 @@ router.get('/', function(req, res, next) {
 router.get('/:chats_id', function(req, res, next) {
 	var chats_id = req.params.chats_id;
 
-	const chatCollection = db.collection('chatscontents');
-	chatCollection.find({chats_id:parseInt(chats_id)}).toArray(function(err, results) {
-		if (err) {
-			var resp = `{ result:false, message: "${error}" }`;
-			res.send(resp);
+	var cache_key = JSON.stringify({chats_id: parseInt(chats_id)});
+	console.log(cache_key);
+	redisClient.get(cache_key, function(err, reply){
+		console.log(reply);
+		if (reply){
+			console.log("cached");
+			res.send(JSON.parse(reply));
 		} else {
-			res.send(results);
+			console.log("not cached");
+			const chatCollection = db.collection('chatscontents');
+			chatCollection.find({chats_id:parseInt(chats_id)}).toArray(function(err, results) {
+				if (err) {
+					var resp = `{ result:false, message: "${error}" }`;
+					res.send(resp);
+				} else {
+					redisClient.set(cache_key, JSON.stringify(results));
+					redisClient.expire(cache_key, 10);
+					res.send(results);
+				}
+			});
 		}
 	});
 });
