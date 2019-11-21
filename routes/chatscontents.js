@@ -1,7 +1,7 @@
 var express = require('express');
 var mysql = require('mysql');
 var bodyParser = require('body-parser');
-var mongoClient = require('mongodb').MongoClient;
+var mongo = require('mongodb');
 var router = express.Router();
 
 router.use(bodyParser.urlencoded({ extended: false }));
@@ -19,44 +19,17 @@ var pool  = mysql.createPool({
 const url = 'mongodb://localhost:27017';
 const dbName = 'myproject';
 var db = null;
-mongoClient.connect(url, function(err, client) {
+mongo.MongoClient.connect(url, function(err, client) {
 	console.log('Connected successfully to mongodb server');
 	db = client.db(dbName);
-
-	// insertTest(db, function() {
-	// 	findTest(db, function() {
-	// 		client.close();	
-	// 	});
-		
-	// });
 });
 
-const insertTest = function(db, callback) {
-	const collection = db.collection('table01');
-
-	collection.insertMany([
-		{a:1}, {a:2}, {a:3}
-		], function(err, result){
-			console.log('Inserted 3 documents into the collection');
-			callback(result);
-		});
-}
-
-const findTest = function(db, callback) {
-	const collection = db.collection('table01');
-	collection.find({}).toArray(function(err, docs){
-		console.log('Found the following records');
-		console.log(docs);
-		callback(docs);
-	})
-}
 
 /* GET users listing. */
-router.get('/:chats_id', function(req, res, next) {
-	var chats_id = req.params.chats_id;
-
+router.get('/', function(req, res, next) {
+	
 	const chatCollection = db.collection('chatscontents');
-	chatCollection.find({chats_id:chats_id}).toArray(function(err, results) {
+	chatCollection.find({}).toArray(function(err, results) {
 		if (err) {
 			var resp = `{ result:false, message: "${error}" }`;
 			res.send(resp);
@@ -64,28 +37,30 @@ router.get('/:chats_id', function(req, res, next) {
 			res.send(results);
 		}
 	});
-
-	// pool.query('SELECT * FROM ChatsContents', function(error, results, fields){
-	// 	if (error) {
-	// 		var resp = `{ result:false, message: "${error}"}`;
-	// 		res.send(resp);
-	// 	} else {
-	// 		res.send(results);
-	// 	}
-	// });
-
 });
 
-router.get('/:id', function(req, res, next){
-	
+router.get('/:chats_id', function(req, res, next) {
+	var chats_id = req.params.chats_id;
+
+	const chatCollection = db.collection('chatscontents');
+	chatCollection.find({chats_id:parseInt(chats_id)}).toArray(function(err, results) {
+		if (err) {
+			var resp = `{ result:false, message: "${error}" }`;
+			res.send(resp);
+		} else {
+			res.send(results);
+		}
+	});
+});
+
+router.get('/:chats_id/:id', function(req, res, next){
+	var chats_id = req.params.chats_id;
 	var id = req.params.id;
-	pool.query({
-		sql: 'SELECT * FROM ChatsContents WHERE id=?',
-		timeout: 4000,
-		values: [parseInt(id)]
-	}, function(error, results, fields){
-		if (error) {
-			var resp = `{ result:false, message: "${error}"}`;
+
+	const chatCollection = db.collection('chatscontents');
+	chatCollection.find({chats_id:parseInt(chats_id), _id: new mongo.ObjectID(id)}).toArray(function(err, results) {
+		if (err) {
+			var resp = `{ result:false, message: "${error}" }`;
 			res.send(resp);
 		} else {
 			res.send(results);
@@ -101,8 +76,8 @@ router.post('/', function(req, res, next){
 	
 	const chatCollection = db.collection('chatscontents');
 	chatCollection.save({
-		chats_id: chats_id,
-		user_id: user_id,
+		chats_id: parseInt(chats_id),
+		user_id: parseInt(user_id),
 		comment: comment,
 		created_at: new Date()
 	}, function(error, results){
@@ -114,21 +89,6 @@ router.post('/', function(req, res, next){
 			res.send(results);
 		}
 	});
-
-	// pool.query({
-	// 	sql: 'INSERT INTO ChatsContents (chats_id, created_at, user_id, comment)\
-	// 	                  VALUES (?, NOW(), ?, ?)',
-	// 	timeout: 4000,
-	// 	values: [parseInt(chats_id), parseInt(user_id), comment]
-	// }, function(error, results, fields){
-	// 	if (error) {
-	// 		var resp = `{ result:false, message: "${error}"}`;
-	// 		res.send(resp);
-	// 	} else {			
-	// 		var resp = `{ result:true, message: ${results.insertId}}`;
-	// 		res.send(resp);
-	// 	}
-	// });
 });
 
 router.put('/:id', function(req, res, next){
@@ -137,18 +97,21 @@ router.put('/:id', function(req, res, next){
 	var chats_id = req.body.chats_id;
 	var user_id = req.body.user_id;
 	var comment = req.body.comment;
-	
-	pool.query({
-		sql: 'UPDATE ChatsContents SET chats_id=?, user_id=?, comment=? WHERE id=?',
-		timeout: 4000,
-		values: [parseInt(chats_id), parseInt(user_id), comment, parseInt(id)]
-	}, function(error, results, fields){
+
+	const chatCollection = db.collection('chatscontents');
+	chatCollection.updateOne({
+		_id: new mongo.ObjectID(id),
+		chats_id: parseInt(chats_id),
+		user_id: parseInt(user_id)
+	}, {
+		$set: {comment: comment}
+	}, 
+	function(error, results){
 		if (error) {
 			var resp = `{ result:false, message: "${error}"}`;
 			res.send(resp);
-		} else {
-			var resp = `{ result:true, message: "ChatsContent ${id} was modified"}`;
-			res.send(resp);
+		} else {			
+			res.send(results);
 		}
 	});
 });
@@ -156,51 +119,48 @@ router.put('/:id', function(req, res, next){
 
 router.delete('/:id', function(req, res, next){
 	var id = req.params.id;
-	pool.query({
-		sql: 'DELETE FROM ChatsContents WHERE id=?',
-		timeout: 4000,
-		values: [parseInt(id)]
-	}, function(error, results, fields){
-		if (error) {
-			var resp = `{ result:false, message: "${error}"}`;
-			res.send(resp);
-		} else {
-			var resp = `{ result:true, message: id}`;
-			res.send(resp);
-		}
-	});
+	
+	const chatCollection = db.collection('chatscontents');
+		chatCollection.deleteOne({
+			_id: new mongo.ObjectID(id)
+		}, function(error, results){
+			if (error) {
+				var resp = `{ result:false, message: "${error}"}`;
+				res.send(resp);
+			} else {			
+				//var resp = `{ result:true, message: ${results.insertId}}`;
+				res.send(results);
+			}
+		});
 });
 
 router.delete('/', function(req, res, next){
 	var chats_id = req.body.chats_id;
 
 	if (chats_id == null || chats_id == undefined) {
-		pool.query({
-			sql: 'DELETE FROM ChatsContents',
-			timeout: 4000
-		}, function(error, results, fields){
+		const chatCollection = db.collection('chatscontents');
+		chatCollection.deleteMany({}, function(error, results){
 			if (error) {
-				var resp = `{ result:false, message: ${error}}`;
+				var resp = `{ result:false, message: "${error}"}`;
 				res.send(resp);
-			} else {
-				var resp = `{ result:true, message: ${results.affectedRows} Contents was deleted`;
-				res.send(resp);
+			} else {			
+				//var resp = `{ result:true, message: ${results.insertId}}`;
+				res.send(results);
 			}
-		});	
+		});
 	} else {
-		pool.query({
-			sql: 'DELETE FROM ChatsContents WHERE chats_id=?',
-			timeout: 4000,
-			values: [parseInt(chats_id)]
-		}, function(error, results, fields){
+		const chatCollection = db.collection('chatscontents');
+		chatCollection.deleteMany({
+			chats_id: parseInt(chats_id)
+		}, function(error, results){
 			if (error) {
-				var resp = `{ result:false, message: ${error}}`;
+				var resp = `{ result:false, message: "${error}"}`;
 				res.send(resp);
-			} else {
-				var resp = `{ result:true, message: ${results.affectedRows} Contents was deleted`;
-				res.send(resp);
+			} else {			
+				//var resp = `{ result:true, message: ${results.insertId}}`;
+				res.send(results);
 			}
-		});	
+		});
 	}
 	
 });
