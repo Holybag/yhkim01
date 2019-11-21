@@ -4,14 +4,25 @@ var bodyParser = require('body-parser');
 var mongo = require('mongodb');
 var redis = require('redis');
 var router = express.Router();
-var redisClient = redis.createClient();
+var redis_Client = redis.createClient();
+var redis_Subscribe = redis.createClient();
 
 router.use(bodyParser.urlencoded({ extended: false }));
 
 ////////// redis ////////////////////
-redisClient.on("error", function (err) {
+redis_Client.on("error", function (err) {
 	console.log("Error " + err);
 });
+
+redis_Subscribe.on("error", function(err) {
+	console.log("Error " + err);
+});
+
+redis_Subscribe.on("message", function(channel, message){
+	console.log(channel + "--" + message);
+});
+
+//redis_Subscribe.subscribe("chat");
 
 /////////// mongodb /////////////
 const url = 'mongodb://localhost:27017';
@@ -29,7 +40,7 @@ router.get('/', function(req, res, next) {
 	var cache_key = JSON.stringify({chats_id: -1});
 	console.log(cache_key);
 
-	redisClient.get(cache_key, function(err, reply){
+	redis_Client.get(cache_key, function(err, reply){
 		console.log(reply);
 		if (reply){
 			console.log("cached");
@@ -42,8 +53,8 @@ router.get('/', function(req, res, next) {
 					var resp = `{ result:false, message: "${error}" }`;
 					res.send(resp);
 				} else {
-					redisClient.set(cache_key, JSON.stringify(results));
-					redisClient.expire(cache_key, 10);
+					redis_Client.set(cache_key, JSON.stringify(results));
+					redis_Client.expire(cache_key, 10);
 					res.send(results);
 				}
 			});
@@ -56,7 +67,7 @@ router.get('/:chats_id', function(req, res, next) {
 
 	var cache_key = JSON.stringify({chats_id: parseInt(chats_id)});
 	console.log(cache_key);
-	redisClient.get(cache_key, function(err, reply){
+	redis_Client.get(cache_key, function(err, reply){
 		console.log(reply);
 		if (reply){
 			console.log("cached");
@@ -69,8 +80,8 @@ router.get('/:chats_id', function(req, res, next) {
 					var resp = `{ result:false, message: "${error}" }`;
 					res.send(resp);
 				} else {
-					redisClient.set(cache_key, JSON.stringify(results));
-					redisClient.expire(cache_key, 10);
+					redis_Client.set(cache_key, JSON.stringify(results));
+					redis_Client.expire(cache_key, 10);
 					res.send(results);
 				}
 			});
@@ -111,6 +122,7 @@ router.post('/', function(req, res, next){
 			res.send(resp);
 		} else {			
 			//var resp = `{ result:true, message: ${results.insertId}}`;
+			redis_Client.publish(chats_id, user_id+":"+comment);
 			res.send(results);
 		}
 	});
