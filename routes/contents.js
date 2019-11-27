@@ -1,48 +1,92 @@
 var express = require('express');
 var mysql = require('mysql');
 var bodyParser = require('body-parser')
+var mongo = require('mongodb');
+var redis = require('redis');
+
 var router = express.Router();
+var redis_Client = redis.createClient();
 
 router.use(bodyParser.urlencoded({ extended: false }));
 
-var pool  = mysql.createPool({
-  connectionLimit : 10,
-  host            : 'localhost',
-  user            : 'yhkim',
-  password        : 'yhkim01!',
-  database        : 'yhkim01'
+///////////// redis /////////////
+redis_Client.on("error", function(err){
+	console.log("Error " + err);
+})
+
+// var pool  = mysql.createPool({
+//   connectionLimit : 10,
+//   host            : 'localhost',
+//   user            : 'yhkim',
+//   password        : 'yhkim01!',
+//   database        : 'yhkim01'
+// });
+
+/////////// mongodb /////////////
+const url = 'mongodb://localhost:27017';
+const dbName = 'myproject';
+var db = null;
+mongo.MongoClient.connect(url, function(err, client) {
+	console.log('Connected successfully to mongodb server(contents)');
+	db = client.db(dbName);
 });
 
 /* GET users listing. */
 router.get('/', function(req, res, next) {
+	
+	var cache_key = "contents";
 
-	pool.query('SELECT * FROM Contents', function(error, results, fields){
-		if (error) {
-			var resp = `{ result:false, message: "${error}"}`;
-			res.send(resp);
+	redis_Client.get(cache_key, function(err, reply){
+		console.log(reply);
+		if (reply) {
+			console.log("cached " + cache_key);
+			res.send(JSON.parse(reply));
 		} else {
-			res.send(results);
+			console.log("not cached" + cache_key);
+			const chatCollection = db.collection('contents');
+			chatCollection.find({}).toArray(function(error, results){
+				if (err) {
+					var resp = `{ result: false, message: "${error}" }`;
+					res.send(resp);
+				} else {
+					redis_Client.set(cache_key, JSON.stringify(results));
+					redis_Client.expire(cache_key, 10);
+					res.send(results);
+				}
+			});
 		}
-	});
-
+	})
 });
 
 
 router.get('/:id', function(req, res, next){
 	
 	var id = req.params.id;
-	pool.query({
-		sql: 'SELECT * FROM Contents WHERE id=?',
-		timeout: 4000,
-		values: [parseInt(id)]
-	}, function(error, results, fields){
-		if (error) {
-			var resp = `{ result:false, message: "${error}"}`;
-			res.send(resp);
+	
+	var cache_key = JSON.stringify({ _id: new mongo.ObjectID(id) });
+	console.log(cache_key);
+
+	redis_Client.get(cache_key, function(err, reply){
+		console.log(reply);
+		if (reply) {
+			console.log("cached " + cache_key);
+			res.send(JSON.parse(reply));
 		} else {
-			res.send(results);
+			console.log("not cached");
+
+			const contentsCollection = db.collection('contents');
+			contentsCollection.find({ _id: new mongo.ObjectID(id)}).toArray(function(err, result) {
+				if (err) {
+					var resp = `{ result:false, message: "${error}" }`;
+					res.send(resp);
+				} else {
+					redis_Client.set(cache_key, JSON.stringify(result));
+					redis_Client.expire(cache_key, 10);
+					res.send(result);
+				}
+			})
 		}
-	});
+	})
 });
 
 router.post('/', function(req, res, next){
@@ -52,20 +96,27 @@ router.post('/', function(req, res, next){
 	var contents = req.body.contents;
 	var image_url = req.body.image_url;
 	var user_id = req.body.user_id;
-	pool.query({
-		sql: 'INSERT INTO Contents (title, type, contents, image_url, user_id, created_at)\
-		                  Values (?, ?, ?, ?, ?, NOW())',
-		timeout: 4000,
-		values: [title, type, contents, image_url, parseInt(user_id)]
-	}, function(error, results, fields){
+
+	var cache_key = "contents";
+
+	const contentsCollection = db.collection('contents');
+	contentsCollection.save({
+		title: title,
+		type: type,
+		contents: contents,
+		image_url: image_url,
+		user_id: parseInt(user_id),
+		created_at: new Date()
+	}, function(error, result){
 		if (error) {
-			var resp = `{ result:false, message: "${error}"}`;
+			var resp = `{ result:false, message: "${error}" }`;
 			res.send(resp);
-		} else {			
-			var resp = `{ result:true, message: ${results.insertId}}`;
-			res.send(resp);
+		} else {
+			// after add new contents deleting the retrieving cached data.  
+			redis_Client.del(cache_key);
+			res.send(result);
 		}
-	});
+	})
 });
 
 router.put('/:id', function(req, res, next){
@@ -75,52 +126,62 @@ router.put('/:id', function(req, res, next){
 	var contents = req.body.contents;
 	var image_url = req.body.image_url;
 	var user_id = req.body.user_id;
-	pool.query({
-		sql: 'UPDATE Contents SET title=?, type=?, contents=?, image_url=?, user_id=? WHERE id=?',
-		timeout: 4000,
-		values: [title, type, contents, image_url, parseInt(user_id), parseInt(id)]
-	}, function(error, results, fields){
+
+	var cache_key = "contents";
+	
+	const contentsCollection = db.collection('contents');
+	contentsCollection.updateOne({
+		_id: new mongo.ObjectID(id)
+	}, {
+		$set: { title: title, type: type, contents: contents, image_url: image_url, user_id: user_id }
+	}, 
+	function(error, result){
 		if (error) {
-			var resp = `{ result:false, message: ${error}}`;
+			var resp = `{ result: false, message: "${error}" }`;
 			res.send(resp);
 		} else {
-			var resp = `{ result:true, message: "Content ${title} is modified"}`;
-			res.send(resp);
+			// after modify contents deleting the retrieving cached data.  
+			redis_Client.del(cache_key);
+			res.send(result);
 		}
 	});
+	
 });
 
 router.delete('/', function(req, res, next){
-	pool.query({
-		sql: 'DELETE FROM Contents',
-		timeout: 4000
-	}, function(error, results, fields){
+	var cache_key = "contents";
+	const contentsCollection = db.collection('contents');
+	contentsCollection.deleteMany({}, function(error, result){
 		if (error) {
-			var resp = `{ result:false, message: "${error}""}`;
+			var resp = `{ result: false, message: "${error}" }`;
 			res.send(resp);
 		} else {
-			var resp = `{ result:true, message: "${results.affectedRows} Contents was deleted"`;
-			res.send(resp);
+			redis_Client.del(cache_key);
+			res.send(result);
 		}
-	});
+	})
 });
 
 router.delete('/:id', function(req, res, next){
 	var id = req.params.id;
 	console.log(id);
-	pool.query({
-		sql: 'DELETE FROM Contents WHERE id=?',
-		timeout: 4000,
-		values: [parseInt(id)]
-	}, function(error, results, fields){
+
+	var cache_key1 = JSON.stringify({ _id: new mongo.ObjectID(id) });
+	var cache_key2 = "contents";
+	
+	const contentsCollection = db.collection('contents');
+	contentsCollection.deleteOne({
+		_id: new mongo.ObjectID(id)
+	}, function(error, result){
 		if (error) {
 			var resp = `{ result:false, message: "${error}" }`;
 			res.send(resp);
 		} else {
-			var resp = `{ result:true, message: "Content ${id} was deleted" }`;
-			res.send(resp);
+			redis_Client.del(cache_key1);
+			redis_Client.del(cache_key2);
+			res.send(result);
 		}
-	});
+	})
 });
 
 module.exports = router;

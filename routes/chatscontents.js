@@ -3,6 +3,7 @@ var mysql = require('mysql');
 var bodyParser = require('body-parser');
 var mongo = require('mongodb');
 var redis = require('redis');
+
 var router = express.Router();
 var redis_Client = redis.createClient();
 var redis_Subscribe = redis.createClient();
@@ -29,7 +30,7 @@ const url = 'mongodb://localhost:27017';
 const dbName = 'myproject';
 var db = null;
 mongo.MongoClient.connect(url, function(err, client) {
-	console.log('Connected successfully to mongodb server');
+	console.log('Connected successfully to mongodb server(chatscontents)');
 	db = client.db(dbName);
 });
 
@@ -48,7 +49,7 @@ router.get('/', function(req, res, next) {
 		} else {
 			console.log("not cached");
 			const chatCollection = db.collection('chatscontents');
-			chatCollection.find({}).toArray(function(err, results) {
+			chatCollection.find({}).toArray(function(error, results) {
 				if (err) {
 					var resp = `{ result:false, message: "${error}" }`;
 					res.send(resp);
@@ -93,13 +94,25 @@ router.get('/:chats_id/:id', function(req, res, next){
 	var chats_id = req.params.chats_id;
 	var id = req.params.id;
 
-	const chatCollection = db.collection('chatscontents');
-	chatCollection.find({chats_id:parseInt(chats_id), _id: new mongo.ObjectID(id)}).toArray(function(err, results) {
-		if (err) {
-			var resp = `{ result:false, message: "${error}" }`;
-			res.send(resp);
+	var cache_key = JSON.stringify({chats_id: parseInt(chats_id), id: parseInt(id)})
+	console.log(cache_key);
+	redis_Client.get(cache_key, function(err, reply){
+		if (reply){
+			console.log("cached");
+			res.send(JSON.parse(reply));
 		} else {
-			res.send(results);
+			console.log("not cached");
+			const chatCollection = db.collection('chatscontents');
+			chatCollection.find({chats_id:parseInt(chats_id), _id: new mongo.ObjectID(id)}).toArray(function(err, results) {
+				if (err) {
+					var resp = `{ result:false, message: "${error}" }`;
+					res.send(resp);
+				} else {
+					redis_Client.set(cache_key, JSON.stringify(results));
+					redis_Client.expire(cache_key, 10);
+					res.send(results);
+				}
+			});
 		}
 	});
 });
@@ -158,17 +171,17 @@ router.delete('/:id', function(req, res, next){
 	var id = req.params.id;
 	
 	const chatCollection = db.collection('chatscontents');
-		chatCollection.deleteOne({
-			_id: new mongo.ObjectID(id)
-		}, function(error, results){
-			if (error) {
-				var resp = `{ result:false, message: "${error}"}`;
-				res.send(resp);
-			} else {			
-				//var resp = `{ result:true, message: ${results.insertId}}`;
-				res.send(results);
-			}
-		});
+	chatCollection.deleteOne({
+		_id: new mongo.ObjectID(id)
+	}, function(error, results){
+		if (error) {
+			var resp = `{ result:false, message: "${error}"}`;
+			res.send(resp);
+		} else {			
+			//var resp = `{ result:true, message: ${results.insertId}}`;
+			res.send(results);
+		}
+	});
 });
 
 router.delete('/', function(req, res, next){
