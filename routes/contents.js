@@ -23,7 +23,7 @@ redis_Client.on("error", function(err){
 // });
 
 /////////// mongodb /////////////
-const url = 'mongodb://localhost:27017';
+const url = 'mongodb://yhkim:yhkim01!@localhost:27017';
 const dbName = 'myproject';
 var db = null;
 mongo.MongoClient.connect(url, function(err, client) {
