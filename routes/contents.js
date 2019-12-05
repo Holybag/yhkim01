@@ -27,8 +27,12 @@ const url = 'mongodb://yhkim:yhkim01!@localhost:27017';
 const dbName = 'myproject';
 var db = null;
 mongo.MongoClient.connect(url, function(err, client) {
-	console.log('Connected successfully to mongodb server(contents)');
-	db = client.db(dbName);
+	if (err) {
+		console.log(err);
+	} else {
+		console.log('Connected successfully to mongodb server(contents)');
+		db = client.db(dbName);
+	}
 });
 
 /* GET users listing. */
