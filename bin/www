@@ -22,6 +22,39 @@ app.set('port', port);
 var server = http.createServer(app);
 
 /**
+ * Redis server
+ */
+
+var redis = require('redis');
+var redis_publish = redis.createClient();
+var redis_subscribe = redis.createClient();
+redis_subscribe.subscribe('chat');
+redis_subscribe.on("message", function(channel, message){
+  console.log("from redis: " + "channel-" + channel + " message-" + message);
+  io.emit('fromServer', message);
+})
+
+/**
+ * socket.io
+ */
+
+const io = require('socket.io')(server);
+io.on('connection', client => {
+  console.log('connection!!');
+
+  client.on('toServer', data => {
+    console.log('receiveFromClient:' + data);
+    //io.emit('broadcast', data);
+    redis_publish.publish('chat', data);
+    console.log('redis publish:', data);
+  });
+
+  client.on('disconnect', ()=> {
+    console.log("disconnected");
+  });
+});
+
+/**
  * Listen on provided port, on all network interfaces.
  */
 
